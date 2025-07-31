@@ -1,70 +1,70 @@
-1 --- a/KernelSU-Next/kernel/selinux/sepolicy.c
-    2 +++ b/KernelSU-Next/kernel/selinux/sepolicy.c
-    3 @@ -938,38 +938,43 @@
-    4     *   HISI_SELINUX_EBITMAP_RO is Huawei's unique features.
-    5     */
-    6   struct ebitmap *sattr = &db->type_attr_map[type->value - 1],
-    7                  HISI_SELINUX_EBITMAP_RO;
-    8  #else
-    9   struct ebitmap *sattr =
-   10 -         flex_array_get(db->type_attr_map_array, type->value - 1);
-   11 +         &db->type_attr_map_array[type->value - 1];
-   12  #endif
-   13 - ebitmap_set_bit(sattr, attr->value - 1, 1);
-   14 +
-   15 + // The policydb is read-only, we need to deep-copy the ebitmap before modifying it.
-   16 + struct ebitmap new_sattr;
-   17 + if (ebitmap_cpy(&new_sattr, sattr)) {
-   18 +         pr_err("KernelSU: failed to copy sattr ebitmap!\n");
-   19 +         return;
-   20 + }
-   21 
-   22 - struct hashtab_node *node;
-   23 - struct constraint_node *n;
-   24 - struct constraint_expr *e;
-   25 - ksu_hashtab_for_each(db->p_classes.table, node)
-   26 - {
-   27 -         struct class_datum *cls = (struct class_datum *)(node->datum);
-   28 -         for (n = cls->constraints; n; n = n->next) {
-   29 -                 for (e = n->expr; e; e = e->next) {
-   30 -                         if (e->expr_type == CEXPR_NAMES &&
-   31 -                             ebitmap_get_bit(&e->type_names->types,
-   32 -                                             attr->value - 1)) {
-   33 -                                 ebitmap_set_bit(&e->names,
-   34 -                                                 type->value - 1, 1);
-   35 -                         }
-   36 -                 }
-   37 -         }
-   38 - };
-   39 + ebitmap_set_bit(&new_sattr, attr->value - 1, 1);
-   40 +
-   41 + // The old sattr->node is in rodata, no need to free.
-   42 + // Replace the original ebitmap with our new writable one.
-   43 + sattr->node = new_sattr.node;
-   44 + sattr->highbit = new_sattr.highbit;
-   45 +
-   46 + /*
-   47 +  * This part is commented out because it attempts to write to the constraints,
-   48 +  * which are also in read-only memory and much harder to safely make writable.
-   49 +  * Disabling this should not affect core functionality for `su`.
-   50 + struct hashtab_node *node;
-   51 + struct constraint_node *n;
-   52 + struct constraint_expr *e;
-   53 + ksu_hashtab_for_each(db->p_classes.table, node)
-   54 + {
-   55 +         struct class_datum *cls = (struct class_datum *)(node->datum);
-   56 +         for (n = cls->constraints; n; n = n->next) {
-   57 +                 for (e = n->expr; e; e = e->next) {
-   58 +                         if (e->expr_type == CEXPR_NAMES &&
-   59 +                             ebitmap_get_bit(&e->type_names->types,
-   60 +                                             attr->value - 1)) {
-   61 +                                 ebitmap_set_bit(&e->names,
-   62 +                                                 type->value - 1, 1);
-   63 +                         }
-   64 +                 }
-   65 +         }
-   66 + };
-   67 + */
-   68  }
-   69 
-   70  static bool add_typeattribute(struct policydb *db, const char *type,
+--- a/KernelSU-Next/kernel/selinux/sepolicy.c
++++ b/KernelSU-Next/kernel/selinux/sepolicy.c
+@@ -938,38 +938,43 @@
+    *   HISI_SELINUX_EBITMAP_RO is Huawei's unique features.
+    */
+struct ebitmap *sattr = &db->type_attr_map[type->value - 1],
+                  HISI_SELINUX_EBITMAP_RO;
+#else
+struct ebitmap *sattr =
+-         flex_array_get(db->type_attr_map_array, type->value - 1);
++         &db->type_attr_map_array[type->value - 1];
+#endif
+ebitmap_set_bit(sattr, attr->value - 1, 1);
++
++ // The policydb is read-only, we need to deep-copy the ebitmap before modifying it.
++ struct ebitmap new_sattr;
++ if (ebitmap_cpy(&new_sattr, sattr)) {
++         pr_err("KernelSU: failed to copy sattr ebitmap!\n");
++         return;
++ }
+ 
+- struct hashtab_node *node;
+- struct constraint_node *n;
+- struct constraint_expr *e;
+- ksu_hashtab_for_each(db->p_classes.table, node)
+- {
+-         struct class_datum *cls = (struct class_datum *)(node->datum);
+-         for (n = cls->constraints; n; n = n->next) {
+-                 for (e = n->expr; e; e = e->next) {
+-                         if (e->expr_type == CEXPR_NAMES &&
+-                             ebitmap_get_bit(&e->type_names->types,
+-                                             attr->value - 1)) {
+-                                 ebitmap_set_bit(&e->names,
+-                                                 type->value - 1, 1);
+-                         }
+-                 }
+-         }
+- };
++ ebitmap_set_bit(&new_sattr, attr->value - 1, 1);
++
++ // The old sattr->node is in rodata, no need to free.
++ // Replace the original ebitmap with our new writable one.
++ sattr->node = new_sattr.node;
++ sattr->highbit = new_sattr.highbit;
++
++ /*
++  * This part is commented out because it attempts to write to the constraints,
++  * which are also in read-only memory and much harder to safely make writable.
++  * Disabling this should not affect core functionality for `su`.
++ struct hashtab_node *node;
++ struct constraint_node *n;
++ struct constraint_expr *e;
++ ksu_hashtab_for_each(db->p_classes.table, node)
++ {
++         struct class_datum *cls = (struct class_datum *)(node->datum);
++         for (n = cls->constraints; n; n = n->next) {
++                 for (e = n->expr; e; e = e->next) {
++                         if (e->expr_type == CEXPR_NAMES &&
++                             ebitmap_get_bit(&e->type_names->types,
++                                             attr->value - 1)) {
++                                 ebitmap_set_bit(&e->names,
++                                                 type->value - 1, 1);
++                         }
++                 }
++         }
++ };
++ */
+ }
+
+static bool add_typeattribute(struct policydb *db, const char *type,
