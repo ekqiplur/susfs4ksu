@@ -1,3 +1,4 @@
+diff --git a/kernel/selinux/sepolicy.c b/kernel/selinux/sepolicy.c
 --- a/KernelSU-Next/kernel/selinux/sepolicy.c
 +++ b/KernelSU-Next/kernel/selinux/sepolicy.c
 @@ -938,38 +938,43 @@
