@@ -87,16 +87,3 @@
 - Some of the File Explorer Apps cannot display a files/directory properly when a specific sub path of '/sdcard' or '/storage/emulated/0' is added to sus_path
     1. Make sure the file explorer app has root allowed by KSU manager, because sus_path is only effective on no root allowed process uid.
     2. It is strongly NOT recommended adding sub path of '/sdcard' or '/storage/emulated/0' to sus_path, because file explorer app is likely using android API to retrieve the list of files/directory, which means the calling uid will be changed to other system media provider app such as the google provider to execute the file lookup operation, and makes sus_path think that it is not a root allowed process uid so as to prevent them from showing up, unless the app obtains the root access first then use root privilege to list the files/directories without using android API.
-
-## Credits ##
-- KernelSU: https://github.com/tiann/KernelSU
-- KernelSU fork: https://github.com/5ec1cff/KernelSU
-- @Kartatz: for ideas and original commit from https://github.com/Dominium-Apum/kernel_xiaomi_chime/pull/1/commits/74f8d4ecacd343432bb8137b7e7fbe3fd9fef189
-
-## Telegram ##
-- @simonpunk
-
-
-## Buy me a coffee ##
-- PayPal: kingjeffkimo@yahoo.com.tw
-- BTC: bc1qgkwvsfln02463zpjf7z6tds8xnpeykggtgk4kw
