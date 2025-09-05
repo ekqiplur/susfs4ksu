@@ -2241,7 +2241,7 @@ index 1f66b1d96ccd..77fefaf3c264 100644
  
  	/* CPU-specific state of this task: */
 diff --git a/kernel/kallsyms.c b/kernel/kallsyms.c
-index e2cb848acd66..972dc98d3202 100644
+index 69b187523468..d99c62d87530 100644
 --- a/kernel/kallsyms.c
 +++ b/kernel/kallsyms.c
 @@ -625,12 +625,17 @@ static void *s_start(struct seq_file *m, loff_t *pos)
@@ -2255,21 +2255,24 @@ index e2cb848acd66..972dc98d3202 100644
 +extern bool susfs_starts_with(const char *str, const char *prefix);
 +#endif
 +
-+
  static int s_show(struct seq_file *m, void *p)
  {
  	struct kallsym_iter *iter = m->private;
  
  	/* Some debugging symbols have no name.  Ignore them. */
  	if (!iter->name[0])
-@@ -651,13 +656,32 @@ static int s_show(struct seq_file *m, void *p)
- 
- #ifndef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+@@ -645,14 +650,43 @@ static int s_show(struct seq_file *m, void *p)
+ 		 */
+ 		type = iter->exported ? toupper(iter->type) :
+ 					tolower(iter->type);
+ 		seq_printf(m, "%pK %c %s\t[%s]\n", (void *)iter->value,
+ 			   type, iter->name, iter->module_name);
+ 	} else
++#ifndef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
  		seq_printf(m, "%pK %c %s\n", (void *)iter->value,
  			   iter->type, iter->name);
- #else
- 	{
--		if (strstr(iter->name, "ksu_") || !strncmp(iter->name, "susfs_", 6) || !strncmp(iter->name, "ksud", 4)) {
++#else
++	{
 +		if (susfs_starts_with(iter->name, "ksu_") ||
 +			susfs_starts_with(iter->name, "__ksu_") ||
 +			susfs_starts_with(iter->name, "susfs_") ||
@@ -2290,12 +2293,18 @@ index e2cb848acd66..972dc98d3202 100644
 +			susfs_starts_with(iter->name, "is_zygote"))
 +		{
 +
- 			return 0;
- 		}
- 		seq_printf(m, "%pK %c %s\n", (void *)iter->value,
- 			   iter->type, iter->name);
- 	}
- #endif
++			return 0;
++		}
++		seq_printf(m, "%pK %c %s\n", (void *)iter->value,
++			   iter->type, iter->name);
++	}
++#endif
+ 	return 0;
+ }
+ 
+ static const struct seq_operations kallsyms_op = {
+ 	.start = s_start,
+ 	.next = s_next,
  
 diff --git a/kernel/sys.c b/kernel/sys.c
 index 4dfc62c1b184..9b26007eeca5 100644
